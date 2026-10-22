@@ -1,0 +1,89 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Helpers ---
+    function isSignedIn() { return request.auth != null; }
+    function isOwner(userId) { return isSignedIn() && request.auth.uid == userId; }
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+    function isValidId(id) { return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); }
+
+    // --- Entity Validations ---
+    function isValidUser(data) {
+      return data.keys().hasAll(['level', 'xp', 'streak']) &&
+             data.level is int && data.level >= 1 &&
+             data.xp is int && data.xp >= 0 &&
+             data.streak is int && data.streak >= 0 &&
+             (!data.keys().contains('name') || (data.name is string && data.name.size() <= 64)) &&
+             (!data.keys().contains('avatarUrl') || data.avatarUrl is string) &&
+             (!data.keys().contains('missionsCompleted') || data.missionsCompleted is int && data.missionsCompleted >= 0) &&
+             (!data.keys().contains('currentMission') || data.currentMission is int) &&
+             (!data.keys().contains('messageStyle') || data.messageStyle in ['subtle', 'normal', 'provocative']) &&
+             (!data.keys().contains('rankingVisible') || data.rankingVisible is bool) &&
+             (!data.keys().contains('profileVisibility') || data.profileVisibility in ['friends', 'public', 'private']) &&
+             (!data.keys().contains('notificationsEnabled') || data.notificationsEnabled is bool) &&
+             (!data.keys().contains('createdAt') || data.createdAt is timestamp) &&
+             (!data.keys().contains('lastActiveAt') || data.lastActiveAt is timestamp);
+    }
+
+    function isValidMission(data) {
+      return data.keys().hasAll(['title', 'status', 'xpReward']) &&
+             data.title is string && data.title.size() <= 128 &&
+             data.status in ['active', 'completed'] &&
+             data.xpReward is int && data.xpReward >= 0 &&
+             (!data.keys().contains('createdAt') || data.createdAt is timestamp) &&
+             (!data.keys().contains('completedAt') || data.completedAt is timestamp);
+    }
+
+    function isValidNotification(data) {
+      return data.keys().hasAll(['type', 'body', 'read', 'createdAt']) &&
+             data.type in ['reminder', 'streak', 'challenge', 'progress'] &&
+             data.body is string && data.body.size() <= 512 &&
+             (!data.keys().contains('title') || data.title is string) &&
+             data.read is bool &&
+             data.createdAt is timestamp;
+    }
+
+    function isValidChallenge(data) {
+      return data.keys().hasAll(['challengeId', 'opponentUid', 'status', 'progress', 'createdAt']) &&
+             data.challengeId is string && data.challengeId.size() <= 128 &&
+             data.opponentUid is string && data.opponentUid.size() <= 128 &&
+             data.status in ['pending', 'active', 'completed'] &&
+             data.progress is int && data.progress >= 0 &&
+             (!data.keys().contains('winner') || data.winner is string) &&
+             data.createdAt is timestamp;
+    }
+
+    // --- Collections ---
+    match /users/{userId} {
+      allow get: if isSignedIn(); // Basic read for public/challenges (allow get if authenticated so users can see challenge opponents) 
+      allow list: if false; // Protect list querying completely
+
+      allow create: if isOwner(userId) && isValidId(userId) && isValidUser(incoming());
+      allow update: if isOwner(userId) && isValidUser(incoming());
+
+      match /missions/{missionId} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidId(missionId) && isValidMission(incoming());
+        allow update: if isOwner(userId) && isValidMission(incoming()) && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'completedAt', 'xpReward', 'title']);
+      }
+
+      match /notifications/{notificationId} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidId(notificationId) && isValidNotification(incoming());
+        allow update: if isOwner(userId) && isValidNotification(incoming()) && incoming().diff(existing()).affectedKeys().hasOnly(['read']);
+      }
+
+      match /challenges/{challengeId} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidId(challengeId) && isValidChallenge(incoming());
+        allow update: if isOwner(userId) && isValidChallenge(incoming()) && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'progress', 'winner']);
+      }
+    }
+  }
+}

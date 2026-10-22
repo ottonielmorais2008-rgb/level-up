@@ -1,0 +1,83 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "Stores user profile and progress data.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "avatarUrl": { "type": "string" },
+        "level": { "type": "integer" },
+        "xp": { "type": "integer" },
+        "streak": { "type": "integer" },
+        "missionsCompleted": { "type": "integer" },
+        "currentMission": { "type": "integer" },
+        "messageStyle": { "type": "string", "enum": ["subtle", "normal", "provocative"] },
+        "rankingVisible": { "type": "boolean" },
+        "profileVisibility": { "type": "string", "enum": ["friends", "public", "private"] },
+        "notificationsEnabled": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "lastActiveAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "level", "xp", "streak"]
+    },
+    "Mission": {
+      "title": "Mission",
+      "description": "A repeatable self-improvement mission for a user.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "status": { "type": "string", "enum": ["active", "completed"] },
+        "xpReward": { "type": "integer" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "completedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "status", "xpReward"]
+    },
+    "Notification": {
+      "title": "Notification",
+      "description": "Smart notifications for the user.",
+      "type": "object",
+      "properties": {
+        "type": { "type": "string", "enum": ["reminder", "streak", "challenge", "progress"] },
+        "title": { "type": "string" },
+        "body": { "type": "string" },
+        "read": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["type", "body", "read", "createdAt"]
+    },
+    "Challenge": {
+      "title": "Challenge",
+      "description": "1v1 challenge progression.",
+      "type": "object",
+      "properties": {
+        "challengeId": { "type": "string" },
+        "opponentUid": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "active", "completed"] },
+        "progress": { "type": "integer" },
+        "winner": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["challengeId", "opponentUid", "status", "progress", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/User" },
+      "description": "User profile and settings."
+    },
+    "/users/{userId}/missions/{missionId}": {
+      "schema": { "$ref": "#/entities/Mission" },
+      "description": "Missions completed by the user."
+    },
+    "/users/{userId}/notifications/{notificationId}": {
+      "schema": { "$ref": "#/entities/Notification" },
+      "description": "Notifications directed at the user."
+    },
+    "/users/{userId}/challenges/{challengeId}": {
+      "schema": { "$ref": "#/entities/Challenge" },
+      "description": "The user's 1v1 challenges."
+    }
+  }
+}

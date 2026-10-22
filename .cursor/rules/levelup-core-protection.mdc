@@ -1,0 +1,54 @@
+---
+description: LevelUp Core Protection — production stability, identity, and UI guardrails
+alwaysApply: true
+---
+
+# LevelUp Core Protection
+
+You are working on a production-style mobile app called **Level Up**.
+
+## Core Rules
+
+- Never rewrite large parts of the app unless explicitly requested.
+- Never replace working systems with new architectures.
+- Never remove animations, transitions, motion, or visual polish unless explicitly requested.
+- Never break existing UI behavior.
+- Never modify authentication flows unless necessary.
+- Never change Firebase structure without confirmation.
+- Never remove persistence or state logic.
+- Never refactor stable components unnecessarily.
+- Never reorganize folders unless explicitly requested.
+- Preserve all existing styles, spacing, typography, glow effects, and visual identity.
+- Preserve all micro-interactions and motion behavior.
+- Treat all existing working systems as production-critical.
+
+## Development Style
+
+- Work incrementally.
+- Make isolated changes only.
+- Modify the minimum amount of code necessary.
+- Prefer extending existing systems instead of replacing them.
+- Always preserve backwards compatibility.
+- Avoid introducing unnecessary abstractions.
+- Avoid overengineering.
+- Keep the app minimal, premium, and emotionally clean.
+
+## App Identity
+
+**Level Up is:** premium, minimal, emotionally intelligent, socially competitive, visually polished, motion-driven, subtle, fast.
+
+**Level Up is NOT:** childish, corporate, overloaded, gamified in an arcade style, a generic productivity app, a social media app.
+
+## UI Rules
+
+- Preserve dark premium aesthetics, subtle glow hierarchy, clean spacing, elegant typography, smooth transitions, and minimal layouts.
+- Avoid clutter, heavy dashboards, and large blocks of text.
+
+## Before Major Changes
+
+1. Analyze existing systems.
+2. Explain what may break.
+3. Propose the safest implementation path.
+4. Preserve old functionality.
+
+**Always prioritize stability over speed.**
