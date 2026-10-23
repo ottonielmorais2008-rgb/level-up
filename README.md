@@ -86,6 +86,34 @@ CI (GitHub Actions) runs `npm ci`, lint, tests and build on every push and pull 
   completion using the same history. The completion is now compared against the history from
   *before* it was recorded (covered by `streakEngine.test.ts`).
 
+## What went wrong
+
+The "perfect week" celebration never fired. It is supposed to run when a new completion day brings
+the streak to a multiple of 7. `completeMissionFromHistory` compared the streak before and after
+using the same history, which already included today's completion. That day was already marked
+complete, so it was not a new day, the streak did not count as increased, and
+`shouldCelebratePerfectWeek` stayed false.
+
+That shared-history comparison is still what the function does if the earlier history is omitted
+(its comment calls this the old behaviour). `streakEngine.test.ts` covers both results: `does not
+celebrate twice on the same day` passes one seven-day history for both sides and expects the flag
+to stay off; `detects a new completion day and celebrates a perfect week` passes the six days from
+before the seventh completion and expects the flag on, with streak 7. The fix passes that earlier
+history. `handleMissionStreakUpdate` sends `session.history` from before the new day is recorded,
+and `completeMissionToday` copies the history before appending today.
+
+- **XP is written by the client.** Firestore rules require `xp` to be a non-negative integer on the
+  owner's document. They accept any larger value, so a signed-in user can inflate their own score.
+  Plan: move XP awarding to a Cloud Function, or limit increments in the rules.
+- **Streak days are counted in UTC.** In Portugal, a mission completed between 00:00 and 01:00
+  during summer time counts for the previous day.
+- **Share and QR links point to `https://levelup.app`**, a domain this project does not control.
+  They should use the app's real deployment URL (for example from an environment variable).
+- **`src/App.tsx` is very large** (about 3,400 lines). Next step: split it into screens and
+  components.
+- **`@google/genai`, `express`, and `dotenv` are unused.** They come from the original prototype
+  and can be removed.
+
 ## How it was built
 
 The first prototype was generated with Google AI Studio (AI-assisted development). This version adds
