@@ -23,6 +23,51 @@ a few minutes of distraction into quick challenges, with XP, levels and daily st
 | Data & auth | Firebase Auth, Cloud Firestore (with security rules), Analytics |
 | Tooling | Vite, Vitest, GitHub Actions |
 
+## Architecture
+
+The screen, the progression rules, and storage are separate. React renders state and responds to input. XP, levels, the mission catalog, and daily streaks are pure functions with no browser dependency, and that is what the unit tests cover. Sign-in and sync go through Firebase.
+
+```mermaid
+flowchart TD
+  subgraph screen [Screen]
+    App["App"]
+    Hook["useStreak and controller"]
+  end
+
+  subgraph rules [Rules]
+    Missions["Mission catalog"]
+    Progression["XP and levels"]
+    Engine["Streak engine"]
+    History["Daily history in UTC"]
+  end
+
+  subgraph storage [Storage]
+    Local["localStorage: levelup_data"]
+    Firestore["Firestore: users/uid"]
+    Auth["Firebase Auth"]
+  end
+
+  User["User"] --> App
+  App --> Missions
+  App --> Progression
+  App --> Hook
+  Hook --> Engine
+  Engine --> History
+  Hook --> Local
+  History --> Local
+  App -->|"XP, level, mission, and history"| Firestore
+  Firestore -->|"live snapshot"| App
+  Auth --> App
+```
+
+When a mission finishes, the flow is:
+
+1. The catalog computes that mission's duration and XP.
+2. Total XP increases. On screen, the level is total XP divided by 100, rounded down. On the Firestore document, a profile with 0 XP is stored as level 1.
+3. The controller appends the UTC day to the history without repeating the same day. The engine recalculates the streak, the personal record, and the perfect week.
+4. State is merged into `localStorage` and, about a second later, into the `users/{uid}` document.
+5. When the app opens, the Firestore snapshot restores the mission index, XP, and history. The engine reconciles the streak with today's UTC day, including older profiles that did not yet store daily history.
+
 ## Streak engine
 
 The streak logic lives in pure, framework-free functions, which makes it easy to test:
@@ -30,7 +75,8 @@ The streak logic lives in pure, framework-free functions, which makes it easy to
 ```
 src/services/streak/
 ├── streakEngine.ts        # current streak, personal record, perfect-week detection
-├── streakEngine.test.ts   # unit tests (Vitest)
+├── streakEngine.test.ts   # streak unit tests (Vitest)
+├── streakHistory.test.ts  # dedupe, trim and legacy history recovery
 ├── streakHistory.ts       # per-day (UTC) completion history and de-duplication
 ├── streakStorage.ts       # local persistence
 └── streakTypes.ts         # shared types
@@ -61,7 +107,22 @@ Deploy the security rules with the Firebase CLI: `firebase deploy --only firesto
 | `npm test` | Run the unit tests (Vitest) |
 | `npm run build` | Production build |
 
-CI (GitHub Actions) runs `npm ci`, lint, tests and build on every push and pull request.
+## Running the tests
+
+The tests use Vitest and run in Node. They do not need Firebase, environment variables, or a browser.
+
+```bash
+npm ci
+npm test
+```
+
+`npm test` runs every `*.test.ts` file: progression (XP, levels, and mission rewards), streak history, and the streak engine. To rerun one file while editing:
+
+```bash
+npx vitest src/services/progression/progression.test.ts
+```
+
+In continuous integration, every push and pull request runs `npm ci`, the type check (`npm run lint`), `npm test`, and `npm run build`.
 
 ## Known issues / roadmap
 
