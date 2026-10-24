@@ -18,6 +18,16 @@ import {
   type StreakSession,
 } from './features/streak/streakController';
 import { mergeStreakIntoStorage } from './services/streak/streakStorage';
+import { getMissionData } from './services/missions/missionData';
+import {
+  XP_PER_LEVEL,
+  didLevelUp,
+  levelAfterEarning,
+  levelFromTotalXp,
+  levelProgressPercent,
+  persistedLevelFromTotalXp,
+  xpIntoCurrentLevel,
+} from './services/progression/xp';
 import { getTodayUtcKey } from './services/streak/streakEngine';
 import type { MissionCompletionRecord } from './services/streak/streakTypes';
 
@@ -122,53 +132,6 @@ function RivalMessage({ text }: { text: string }) {
     </div>
   );
 }
-
-const getMissionData = (index: number) => {
-  const cycle = Math.floor(index / 12);
-  const baseMissions = [
-    { title: "Interrupt", instruction: "Put your phone face down for {dur} seconds.", duration: 10, xp: 10 },
-    { title: "Snap Out", instruction: "Clap your hands {count} and sit up straight.", duration: 5, xp: 10 },
-    { title: "Eye Reset", instruction: "Look away from the screen for {dur} seconds.", duration: 15, xp: 10 },
-    { title: "Still Mode", instruction: "Stay completely still for {dur} seconds.", duration: 10, xp: 15 },
-    { title: "Micro Move", instruction: "Stand up and take {count} steps.", duration: 10, xp: 15 },
-    { title: "Shoulder Reset", instruction: "Roll your shoulders slowly {count} times.", duration: 15, xp: 15 },
-    { title: "Breath Lock", instruction: "Take one deep breath and hold for {dur} seconds.", duration: 10, xp: 20 },
-    { title: "Hand Control", instruction: "Open and close your hands slowly {count} times.", duration: 15, xp: 20 },
-    { title: "One Thought", instruction: "Think of one thing you need to do next.", duration: 10, xp: 20 },
-    { title: "Name It", instruction: "Say out loud what you were just doing.", duration: 10, xp: 20 },
-    { title: "Decision Snap", instruction: "Decide one small action and commit to it.", duration: 10, xp: 25 },
-    { title: "Focus Lock", instruction: "Focus on one object for {dur} seconds.", duration: 15, xp: 25 },
-  ];
-
-  const steps = [1, 5, 7, 11];
-  const step = steps[cycle % steps.length];
-  const offset = cycle % 12;
-  const positionInCycle = index % 12;
-  
-  const mappedIndex = (positionInCycle * step + offset) % 12;
-  const base = baseMissions[mappedIndex];
-
-  const durationAdd = cycle * 5;
-  const finalDuration = index === 0 ? 5 : Math.min(base.duration + durationAdd, 45);
-  const countAdd = cycle;
-
-  const parsedInstruction = base.instruction
-    .replace('{dur}', finalDuration.toString())
-    .replace('{count}', () => {
-      if (base.title === "Snap Out") return (1 + countAdd) === 1 ? "once" : (1 + countAdd) + " times";
-      if (base.title === "Micro Move") return (3 + countAdd * 2).toString();
-      if (base.title === "Shoulder Reset") return (5 + countAdd * 2).toString();
-      if (base.title === "Hand Control") return (10 + countAdd * 5).toString();
-      return "";
-    });
-
-  return {
-    title: base.title,
-    instruction: parsedInstruction,
-    duration: finalDuration,
-    xp: index === 0 ? 100 : index === 1 ? 80 : index === 2 ? 60 : base.xp + cycle * 5
-  };
-};
 
 function HomeContent({ onStart, onChallenge, onInvite, onProfile, onStreakDetail, level, streak, justIncreasedStreak, completedMissions }: { onStart: () => void; onChallenge: () => void; onInvite: () => void; onProfile: () => void; onStreakDetail: () => void; level: number; streak: number; justIncreasedStreak?: boolean; completedMissions: number; key?: string }) {
   const [rivalMsg, setRivalMsg] = useState("");
@@ -1361,10 +1324,10 @@ function SettingsItem({ label, value, onClick, isLast }: { label: string, value?
 }
 
 function ProfileContent({ totalXP, streak, longestStreak, completedMissions, onBack, user }: { totalXP: number; streak: number; longestStreak: number; completedMissions: number; onBack: () => void; user: User | null; key?: string }) {
-  const level = Math.floor(totalXP / 100);
-  const currentLevelXP = totalXP % 100;
-  const nextLevelXP = 100;
-  const progressPercentage = (currentLevelXP / nextLevelXP) * 100;
+  const level = levelFromTotalXp(totalXP);
+  const currentLevelXP = xpIntoCurrentLevel(totalXP);
+  const nextLevelXP = XP_PER_LEVEL;
+  const progressPercentage = levelProgressPercent(totalXP);
 
   const [isEditingName, setIsEditingName] = useState(false);
   const [tempName, setTempName] = useState(user?.displayName || "Player");
@@ -3250,7 +3213,7 @@ export default function App() {
             currentMission: missionIndex,
             missionsCompleted: completedMissionsCount,
             xp: totalXP,
-            level: Math.floor(totalXP / 100) || 1,
+            level: persistedLevelFromTotalXp(totalXP),
             streak,
             longestStreak,
             hasCompletedToday,
@@ -3316,7 +3279,7 @@ export default function App() {
             <Onboarding2Content key="onboarding2" onComplete={() => setAppState('home')} />
           ) : appState === 'home' ? (
             <>
-              <HomeContent key="home" level={Math.floor(totalXP / 100)} streak={streak} justIncreasedStreak={justIncreasedStreak} completedMissions={completedMissionsCount} onStart={() => setAppState('mission')} onChallenge={() => setAppState('challenge')} onInvite={() => setAppState('invite')} onProfile={() => setAppState('profile')} onStreakDetail={() => setAppState('streak_detail')} />
+              <HomeContent key="home" level={levelFromTotalXp(totalXP)} streak={streak} justIncreasedStreak={justIncreasedStreak} completedMissions={completedMissionsCount} onStart={() => setAppState('mission')} onChallenge={() => setAppState('challenge')} onInvite={() => setAppState('invite')} onProfile={() => setAppState('profile')} onStreakDetail={() => setAppState('streak_detail')} />
               {(showLoginSuggestion && (!user || user.isAnonymous || isLinking)) && <LoginPrompt setIsLinking={setIsLinking} onLoginSuccess={() => setShowLoginSuggestion(false)} />}
             </>
           ) : appState === 'streak_detail' ? (
@@ -3328,8 +3291,8 @@ export default function App() {
               <MissionContent key={`mission-${missionIndex}`} mission={getMissionData(missionIndex)} onComplete={() => {
                 const earned = getMissionData(missionIndex).xp;
                 
-                const currentLevel = Math.floor(totalXP / 100);
-                const nextLevel = Math.floor((totalXP + earned) / 100);
+                const currentLevel = levelFromTotalXp(totalXP);
+                const nextLevel = levelAfterEarning(totalXP, earned);
                 
                 if (analytics) {
                   logEvent(analytics, 'mission_completed', { mission_index: missionIndex, xp_earned: earned });
@@ -3374,7 +3337,7 @@ export default function App() {
               <RewardContent 
                 key={`reward-${missionIndex}`}
                 earnedXP={lastEarnedXP}
-                leveledUp={Math.floor(totalXP / 100) > Math.floor((totalXP - lastEarnedXP) / 100)}
+                leveledUp={didLevelUp(totalXP, lastEarnedXP)}
                 streak={streak}
                 streakIncreased={justIncreasedStreak}
                 isCycleComplete={missionIndex % 12 === 11}
