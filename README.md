@@ -23,50 +23,50 @@ a few minutes of distraction into quick challenges, with XP, levels and daily st
 | Data & auth | Firebase Auth, Cloud Firestore (with security rules), Analytics |
 | Tooling | Vite, Vitest, GitHub Actions |
 
-## Arquitetura
+## Architecture
 
-O ecrã, as regras de progressão e o armazenamento estão separados. O React mostra o estado e reage ao toque. O XP, os níveis, o catálogo de missões e as sequências diárias (streaks) são funções puras, sem browser, e é aí que os testes entram. A sessão e a sincronização passam pelo Firebase.
+The screen, the progression rules, and storage are separate. React renders state and responds to input. XP, levels, the mission catalog, and daily streaks are pure functions with no browser dependency, and that is what the unit tests cover. Sign-in and sync go through Firebase.
 
 ```mermaid
 flowchart TD
-  subgraph ecra [Ecrã]
+  subgraph screen [Screen]
     App["App"]
-    Hook["useStreak e controlador"]
+    Hook["useStreak and controller"]
   end
 
-  subgraph regras [Regras]
-    Missoes["Catálogo de missões"]
-    Progressao["XP e níveis"]
-    Motor["Motor de sequências"]
-    Historico["Histórico diário em UTC"]
+  subgraph rules [Rules]
+    Missions["Mission catalog"]
+    Progression["XP and levels"]
+    Engine["Streak engine"]
+    History["Daily history in UTC"]
   end
 
-  subgraph dados [Armazenamento]
+  subgraph storage [Storage]
     Local["localStorage: levelup_data"]
     Firestore["Firestore: users/uid"]
     Auth["Firebase Auth"]
   end
 
-  Utilizador["Utilizador"] --> App
-  App --> Missoes
-  App --> Progressao
+  User["User"] --> App
+  App --> Missions
+  App --> Progression
   App --> Hook
-  Hook --> Motor
-  Motor --> Historico
+  Hook --> Engine
+  Engine --> History
   Hook --> Local
-  Historico --> Local
-  App -->|"XP, nível, missão e histórico"| Firestore
-  Firestore -->|"snapshot em tempo real"| App
+  History --> Local
+  App -->|"XP, level, mission, and history"| Firestore
+  Firestore -->|"live snapshot"| App
   Auth --> App
 ```
 
-Quando uma missão termina, o fluxo é este:
+When a mission finishes, the flow is:
 
-1. O catálogo calcula a duração e o XP dessa missão.
-2. O total de XP sobe. No ecrã, o nível é a divisão inteira do XP por 100. No documento do Firestore, um perfil com 0 XP fica gravado como nível 1.
-3. O controlador acrescenta o dia UTC ao histórico, sem repetir o mesmo dia. O motor recalcula a sequência, o recorde e a semana perfeita.
-4. O estado funde-se no `localStorage` e, cerca de um segundo depois, no documento `users/{uid}`.
-5. Ao abrir a aplicação, o snapshot do Firestore repõe o índice da missão, o XP e o histórico. O motor reconcilia a sequência com o dia UTC de hoje, incluindo perfis antigos que ainda não tinham histórico diário.
+1. The catalog computes that mission's duration and XP.
+2. Total XP increases. On screen, the level is total XP divided by 100, rounded down. On the Firestore document, a profile with 0 XP is stored as level 1.
+3. The controller appends the UTC day to the history without repeating the same day. The engine recalculates the streak, the personal record, and the perfect week.
+4. State is merged into `localStorage` and, about a second later, into the `users/{uid}` document.
+5. When the app opens, the Firestore snapshot restores the mission index, XP, and history. The engine reconciles the streak with today's UTC day, including older profiles that did not yet store daily history.
 
 ## Streak engine
 
@@ -107,22 +107,22 @@ Deploy the security rules with the Firebase CLI: `firebase deploy --only firesto
 | `npm test` | Run the unit tests (Vitest) |
 | `npm run build` | Production build |
 
-## Como correr os testes
+## Running the tests
 
-Os testes usam o Vitest e correm em Node. Não é preciso Firebase, variáveis de ambiente nem browser.
+The tests use Vitest and run in Node. They do not need Firebase, environment variables, or a browser.
 
 ```bash
 npm ci
 npm test
 ```
 
-`npm test` executa todos os ficheiros `*.test.ts`: progressão (XP, níveis e recompensas das missões), histórico das sequências e o motor de sequências. Para repetir um ficheiro enquanto se edita:
+`npm test` runs every `*.test.ts` file: progression (XP, levels, and mission rewards), streak history, and the streak engine. To rerun one file while editing:
 
 ```bash
 npx vitest src/services/progression/progression.test.ts
 ```
 
-Na integração contínua, cada push e cada pull request corre `npm ci`, a verificação de tipos (`npm run lint`), `npm test` e `npm run build`.
+In continuous integration, every push and pull request runs `npm ci`, the type check (`npm run lint`), `npm test`, and `npm run build`.
 
 ## Known issues / roadmap
 
